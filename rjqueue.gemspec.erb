@@ -6,9 +6,13 @@ Gem::Specification.new do |s|
     A Job Queue Server.  Responses to UDP requests.
   EOF
 
-  
+  <%
+    files = ["LICENSE", "README", "Rakefile",
+             "bin/rjqueue", "config/database.yml",
+             "config/jobs.yml"] + Dir["lib/**/**.rb"]
+  %>
 
-  s.files = ["LICENSE", "README", "Rakefile", "bin/rjqueue", "config/database.yml", "config/jobs.yml", "lib/jobs/scheduler.rb", "lib/jobs/initializer.rb", "lib/jobs/migrate.rb", "lib/jobs/job.rb", "lib/jobs/server.rb", "lib/jobs/client.rb", "lib/jobs/base.rb"]
+  s.files = <%= files.inspect %>
 
   #### Load-time details
   s.require_path = 'lib'
@@ -18,8 +22,10 @@ Gem::Specification.new do |s|
 
   s.platform = Gem::Platform::RUBY
 
-  
-  s.test_files = ["tests/sample.png", "tests/test_server.rb", "tests/jobs/image_thumb_job.rb", "tests/jobs/find_file_job.rb", "tests/lib/message.rb", "tests/lib/image.rb", "tests/lib/create_test_data.rb"]
+  <% 
+    tests = ["tests/sample.png"] + Dir["tests/**/**.rb"]
+  %>
+  s.test_files = <%= tests.inspect %>
 
   #### Author and project details.
 

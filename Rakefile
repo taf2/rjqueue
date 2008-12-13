@@ -1,10 +1,5 @@
 require 'rake'
 require 'rake/testtask'
-begin
-  require 'rake/gempackagetask'
-rescue LoadError
-  $stderr.puts("Rubygems support disabled")
-end
 
 
 desc 'Set up environment, setup database options in config/database.yml'
@@ -54,52 +49,26 @@ end
 
 task :default => :test
 
-if ! defined?(Gem)
-  warn "Package Target requires RubyGEMs"
-else
-  spec = Gem::Specification.new do |s|
-
-    #### Basic information.
-
-    s.name = 'rjqueue'
-    s.version = "0.1.0"
-    s.summary = "Ruby Job Queue"
-    s.description = <<-EOF
-      A Job Queue Server.  Responses to UDP requests.
-    EOF
-
-    #### Which files are to be included in this gem?
-
-    s.files = ["LICENSE", "README", "Rakefile",
-             "bin/rjqueue", "config/database.yml",
-             "config/jobs.yml"] + Dir["lib/**/**.rb"]
-
-    #### Load-time details
-    s.require_path = 'lib'
-
-    #### Documentation and testing.
-    s.has_rdoc = true
-
-    s.platform = Gem::Platform::RUBY
-
-    s.test_files = ["tests/sample.png"] + Dir["test/**/**.rb"]
-
-    #### Author and project details.
-
-    s.author = "Todd A. Fisher"
-    s.email = "todd.fisher@gmail.com"
-    s.homepage = "http://idle-hacking.com/"
-    s.rubyforge_project = "rjqueue"
-    s.bindir = "bin"
-    s.executables = ["rjqueue"]
-  end
-
-  package_task = Rake::GemPackageTask.new(spec) do |pkg|
-    pkg.need_zip = true
-    pkg.need_tar_gz = true
-    pkg.package_dir = 'pkg'
+desc 'Generate gem specification'
+task :gemspec do
+  require 'erb'
+  tspec = ERB.new(File.read(File.join(File.dirname(__FILE__),'rjqueue.gemspec.erb')))
+  File.open('rjqueue.gemspec','wb') do|f|
+    f << tspec.result
   end
 end
+
+desc 'Build gem'
+task :build => :gemspec do
+  require 'rubygems/specification'
+  spec_source = File.read File.join(File.dirname(__FILE__),'rjqueue.gemspec')
+  spec = nil
+  # see: http://gist.github.com/16215
+  Thread.new { spec = eval "$SAFE = 3\n#{spec_source}" }.join
+  spec.validate
+  Gem::Builder.new(spec).build
+end
+
 
 desc 'Install the gem'
 task :install  => :package do
