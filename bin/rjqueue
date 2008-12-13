@@ -1,0 +1,63 @@
+#!/usr/bin/env ruby
+
+require 'jobs/server'
+
+require 'getoptlong'
+
+opts = GetoptLong.new(
+          [ '--help', '-h', GetoptLong::NO_ARGUMENT ],
+          [ '--environment', '-e', GetoptLong::OPTIONAL_ARGUMENT ],
+          [ '--config', '-c', GetoptLong::OPTIONAL_ARGUMENT ],
+          [ '--migrate', '-m', GetoptLong::NO_ARGUMENT ],
+          [ '--daemonize', '-d', GetoptLong::NO_ARGUMENT ],
+          [ '--kill', '-k', GetoptLong::NO_ARGUMENT ] )
+
+config = nil
+env = 'development'
+migrate = false
+kill = false
+daemonize = false
+
+opts.each do|opt,arg|
+  case opt
+    when '--help'
+      puts "Usage: #{__FILE__} --config path/to/config/file --environment development|production"
+      puts "#{__FILE__} --daemonize, will daemonize the process "
+      puts "#{__FILE__} --kill, will kill the currently running daemon "
+      puts "#{__FILE__} --migrate, will run the jobs migration "
+      exit(0)
+    when '--config'
+      config = arg
+    when '--migrate'
+      migrate = true
+    when '--kill'
+      kill = true
+    when '--daemonize'
+      daemonize = true
+    when '--environment'
+      env = arg
+  end
+end
+
+if config.nil?
+  # try using config/jobs.yml, as the default
+  config = "config/jobs.yml"
+end
+      
+if !File.exist?(config)
+  puts "Error config file: #{config} does not exist!"
+  exit(1)
+end
+
+runner = Jobs::Server.new( File.expand_path(File.dirname(__FILE__)), config, env )
+if migrate
+  runner.migrate
+elsif kill
+  runner.kill
+else
+  if daemonize 
+    runner.run_daemonized
+  else
+    runner.run_foreground
+  end
+end

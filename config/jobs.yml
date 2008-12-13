@@ -1,0 +1,41 @@
+development:
+  host: 127.0.0.1
+  port: 4321 # udp port to listen for new jobs
+  min_wait_time: 10 # min amount of time to wait before chekcing for jobs
+  max_wait_time: 6000 # max amount of time to wait before checking for jobs
+  process: 5 # number of jobs to process concurrently, should match config/database.yml pool:
+  logfile: logs/jobqueue.log
+  pidfile: logs/jobqueue-4321.pid
+  preload: [config/boot.rb, config/environments.rb]
+  jobpath: test/jobs
+  runpath: .
+  establish_connection: false
+
+test:
+  host: 127.0.0.1
+  port: 4320 # udp port to listen for new jobs
+  min_wait_time: 10 # min amount of time to wait before chekcing for jobs
+  max_wait_time: 6000 # max amount of time to wait before checking for jobs
+  process: 5 # number of jobs to process concurrently per worker, should match config/database.yml pool:
+  workers: 5 # how many workers to check for new jobs
+  logfile: logs/test-jobqueue.log # will write log messages in this file relative to the runpath
+  pidfile: logs/jobqueue-4321.pid # will store pidfile in this folder relative to the runpath
+  preload: [] # will preload nothing, usually this can be used to load a rails environment
+  jobpath: jobs # will look for jobs in this folder, relative to the runpath
+  runpath: tests # will run the daemon in this folder
+  establish_connection: true # the db connection must be established by the daemon process explicitly, normally this can be done in the preload scripts, e.g. by rails
+
+production:
+  user: deployer
+  group: deployer
+  host: 127.0.0.1
+  port: 4321
+  min_wait_time: 5
+  max_wait_time: 60
+  process: 5 # should match config/database.yml pool:
+  logfile: logs/jobqueue.log
+  pidfile: logs/jobqueue-4321.pid
+  preload: [config/boot.rb, config/environments.rb]
+  jobpath: test/jobs
+  runpath: .
+  establish_connection: false
