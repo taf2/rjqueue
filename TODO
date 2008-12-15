@@ -10,3 +10,4 @@ rjqueue --setup
 * on start up check for the jobs table and fail before daemonizing
 * report missing job requests better (check in the schedule method) e.g. not setting details on the job
 * generate monit configuration, from jobs.yml
+* create worker processes

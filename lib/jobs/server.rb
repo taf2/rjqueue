@@ -45,10 +45,9 @@ class Server
   end
 
   def trap_exit
-    trap("TERM") { puts "trap TERM"; shutdown(1) }
-    trap("INT") { puts "trap INT"; shutdown(1) }
+    trap("TERM") { puts "trap TERM"; @running = false; trap("TERM","SIG_DFL"); Process.kill("TERM", Process.pid) }
+    trap("INT") { puts "trap INT"; @running = false;  trap("INT","SIG_DFL"); Process.kill("TERM", Process.pid) }
     trap("HUP") { puts "trap HUP" }
-    at_exit { puts "at_exit"; shutdown(nil) }
   end
 
   # load the server configuration, and intialize configuration instance variables
@@ -122,8 +121,14 @@ class Server
     require 'active_record'
 
     if @config['establish_connection']
-      require 'mysqlplus'
-      ::Mysql.class_eval { alias :query :async_query }
+      if @config['enable_threads']
+        begin
+          require 'mysqlplus'
+          ::Mysql.class_eval { alias :query :async_query }
+        rescue => e
+          @logger.info("running with threads and no mysqlplus")
+        end
+      end
       @logger.info("establish connection environment with #{@config_path.inspect} and env: #{@env.inspect}")
       @db = YAML.load_file(File.join(File.dirname(@config_path),'database.yml'))[@env]
       ActiveRecord::Base.establish_connection @db
@@ -342,7 +347,7 @@ class Server
           }
         end
 
-        if jobs.size < 2
+        if jobs.size > 2 and @config['enable_threads']
           # spawn a thread for each job
           threads = jobs.map do |j|
             Thread.new(j) do |job|
@@ -437,8 +442,10 @@ class Server
 
       end
     rescue Object => e
-      @logger.error "[jobqueue] #{e.message}\n#{e.backtrace.join("\n")}"
-      retry
+      if @running
+        @logger.error "[jobqueue] #{e.message}\n#{e.backtrace.join("\n")}"
+        retry
+      end
     end
     worker.kill
   end
