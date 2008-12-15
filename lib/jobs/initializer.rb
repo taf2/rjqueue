@@ -17,24 +17,6 @@ module Jobs
 
     def self.rails!
       run! "#{RAILS_ROOT}/app/jobs", "#{RAILS_ROOT}/config/jobs.yml", RAILS_ENV
-      if RAILS_ENV != 'production'
-        # if this method is defined, it'll be called before each job is executed... during
-        # development this allows you to change your job code without restarting the job server...
-        Jobs::Server.class_eval do
-          def reload!
-            # clear things out
-            ActiveRecord::Base.reset_subclasses if defined?(ActiveRecord)
-            ActiveSupport::Dependencies.clear
-            ActiveRecord::Base.clear_reloadable_connections! if defined?(ActiveRecord)
-            
-            # reload the environment... XXX: skipping the run_callbacks from reload_application in dispatcher.rb action_pack...
-            # this might cause the shit to hit the fan...
-            Routing::Routes.reload
-            ActionController::Base.view_paths.reload!
-            ActionView::Helpers::AssetTagHelper::AssetTag::Cache.clear
-          end
-        end
-      end
     end
 
     def self.test!

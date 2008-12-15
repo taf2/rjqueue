@@ -1,6 +1,6 @@
 #!/usr/bin/env ruby
 
-require 'jobs/server2'
+require 'jobs/server'
 
 require 'getoptlong'
 

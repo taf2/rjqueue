@@ -2,8 +2,8 @@ test:
   host: 127.0.0.1
   port: 4320 # udp port to listen for new jobs
   wait_time: 5 # timeout and check for jobs e.g. min sql queries per second
-  threads: 2 # number of threads to run per worker
-  workers: 1 # number of processes to create
+  threads: 1 # number of threads to run per worker
+  workers: 5 # number of processes to create
   logfile: logs/jobqueue.log # will write log messages in this file relative to the runpath
   pidfile: logs/jobqueue.pid # will store pidfile in this folder relative to the runpath
   preload: [] # will preload nothing, usually this can be used to load a rails environment

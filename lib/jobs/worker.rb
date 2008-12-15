@@ -25,11 +25,13 @@ require 'thread'
 require 'rubygems'
 require 'mysql'
 require 'active_record'
+require 'jobs/client'
 
 module Jobs
   class Worker
-    def initialize(config, config_path, logger, env)
+    def initialize(config, runpath, config_path, logger, env)
       @config = config
+      @runpath = runpath
       @config_path = config_path
       @logger = logger
       @queue = Queue.new
@@ -38,6 +40,11 @@ module Jobs
       @thread = nil
       @env = env
       preload
+
+      unless defined?(Jobs::Initializer) and Jobs::Initializer.ready?
+        Jobs::Initializer.run! File.join(@runpath,@config['jobpath']), @config_path, @env
+      end
+
       establish_connection
       @threads = (@config['threads'] or 1).to_i
       @pid = Process.pid
@@ -123,6 +130,8 @@ module Jobs
             end
           end
 
+          reload!
+
           if jobs.size > 2 and @threads > 1
             threads = jobs.map do |job|
               Thread.new(job) do|j|
@@ -185,12 +194,31 @@ module Jobs
       @logger.info("[job worker #{@pid}]: establish connection environment with #{@config_path.inspect} and env: #{@env.inspect}")
       @db = YAML.load_file(File.join(File.dirname(@config_path),'database.yml'))[@env]
       ActiveRecord::Base.establish_connection @db
-      #ActiveRecord::Base.logger = @logger
+      ActiveRecord::Base.logger = @logger
       #ActiveRecord::Base.logger = Logger.new( "#{@logfile}-db.log" )
-      ActiveRecord::Base.logger = Logger.new( "/dev/null" )
+      #ActiveRecord::Base.logger = Logger.new( "/dev/null" )
 
       # load the jobs/job model
       require 'jobs/job'
     end
+
+    def reload!
+      if defined?(RAILS_ENV) and RAILS_ENV != 'production'
+        # if this method is defined, it'll be called before each job is executed... during
+        # development this allows you to change your job code without restarting the job server...
+        # clear things out
+
+        ActiveRecord::Base.reset_subclasses if defined?(ActiveRecord)
+        ActiveSupport::Dependencies.clear if defined?(ActiveSupport)
+        ActiveRecord::Base.clear_reloadable_connections! if defined?(ActiveRecord)
+        
+        # reload the environment... XXX: skipping the run_callbacks from reload_application in dispatcher.rb action_pack...
+        # this might cause the shit to hit the fan...
+        Routing::Routes.reload if defined?(Routing)
+        ActionController::Base.view_paths.reload! if defined?(ActionController)
+        ActionView::Helpers::AssetTagHelper::AssetTag::Cache.clear if defined?(ActionView)
+      end
+    end
+
   end
 end

@@ -48,6 +48,6 @@ end
 puts "db ready starting server"
 
 $:.unshift File.expand_path( File.join(File.dirname(__FILE__),'lib') )
-require 'jobs/server2'
+require 'jobs/server'
 Jobs::Server.new(".", "config/jobs.yml", "test").run(false)
 Process.waitpid2(pid,0)
