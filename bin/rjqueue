@@ -1,6 +1,6 @@
 #!/usr/bin/env ruby
 
-require 'jobs/server'
+require 'jobs/server2'
 
 require 'getoptlong'
 
@@ -55,9 +55,5 @@ if migrate
 elsif kill
   runner.kill
 else
-  if daemonize 
-    runner.run_daemonized
-  else
-    runner.run_foreground
-  end
+  runner.run(daemonize)
 end

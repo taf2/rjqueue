@@ -19,12 +19,9 @@ module Jobs
       load_config
     end
 
-    def run(foreground=true)
-      @foreground = foreground
-      if @foreground
-        startup
-        run_loop
-      else
+    def run(daemonize=true)
+      @daemonize = daemonize
+      if @daemonize
         if File.exist?(@pid_file)
           STDERR.puts "Pid file for job already exists: #{@pid_file}"
           exit 1
@@ -78,18 +75,52 @@ module Jobs
         puts output
         rd.close
         exit(1) if output.match(/ERROR/i)
+      else
+        startup
+        run_loop
       end
     end
 
     private
 
+    def check_count
+      count = 0
+      res = @conn.query("select count(id) from jobs where status='pending' and locked=0")
+      #count += 1 # timeout, tell the worker process to check again
+      count = res.fetch_row[0].to_i
+      @logger.debug("[jobqueue]: timeout with #{count}")
+      count
+    rescue Mysql::Error => e
+      @logger.error("[jobqueue]: #{e.message}\n#{e.backtrace.join("\n")}")
+      count = 1
+      db_connect!
+      count
+    ensure
+      res.free if res
+    end
+
+    def db_connect!
+      # connect to the MySQL server
+      dbconf = YAML.load_file(File.join(File.dirname(@config_path),'database.yml'))[@env]
+      @conn = Mysql.real_connect(dbconf['host'], dbconf['username'], dbconf['password'], dbconf['database'], (dbconf['port'] or 3306) )
+    end
+
     def run_loop
       
       @config['workers'].times { start_worker }
 
-      @sleep_time = @min_wait_time
+      @sleep_time = @wait_time
+
+      # job queue master process needs to be aware of the number of jobs pending on timeout
+      require 'rubygems'
+      require 'mysql'
+
+      db_connect!
 
       begin
+        count = check_count
+        signal_work(count) if count > 0
+
         while(@running) do
           count = 0
           begin
@@ -98,7 +129,8 @@ module Jobs
                 count += 1 # a new message, increment the request count
               end
             else
-              count += 1 # timeout, tell the worker process to check again
+              @logger.debug("[jobqueue]: timeout")
+              count = check_count
             end
           rescue Errno::EAGAIN => e
             # there is more information pending, but we don't have it hear yet... not sure if this condition happens with UDP
@@ -211,6 +243,7 @@ module Jobs
       if File.exist?(@pid_file)
         File.unlink(@pid_file)
       end
+      @conn.close if @conn
     end
 
     def bind_socket
@@ -241,11 +274,10 @@ module Jobs
       end
 
       # store some common config keys
-      @min_wait_time = @config['min_wait_time'] || 10
-      @max_wait_time = @config['max_wait_time'] || 60
+      @wait_time     = @config['wait_time'] || 10
       @port          = @config['port'] || 4321
       @host          = @config['host'] || '127.0.0.1'
-      @process       = @config['process'] || 10
+      @threads       = @config['threads'] || 10
     end
 
     # setup logging
@@ -253,13 +285,13 @@ module Jobs
       require 'logger'
       if @config['logfile']
         @logfile = @config['logfile']
-        if @foreground
-          @logger = Logger.new(STDOUT)
-        else
+        if @daemonize
           if !@logfile.match(/^\//)
             @logfile = File.join(@runpath, @logfile)
           end
           @logger = Logger.new( @logfile )
+        else
+          @logger = Logger.new(STDOUT)
         end
       else
         @logger = Logger.new( '/dev/null' )

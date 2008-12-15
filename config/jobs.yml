@@ -1,14 +1,11 @@
 test:
   host: 127.0.0.1
   port: 4320 # udp port to listen for new jobs
-  min_wait_time: 100 # min amount of time to wait before chekcing for jobs
-  max_wait_time: 600 # max amount of time to wait before checking for jobs
-  process: 2 # number of jobs to process concurrently per worker, should match config/database.yml pool:
-  workers: 10 # how many workers to check for new jobs
-  logfile: logs/test-jobqueue.log # will write log messages in this file relative to the runpath
-  pidfile: logs/jobqueue-4321.pid # will store pidfile in this folder relative to the runpath
+  wait_time: 5 # timeout and check for jobs e.g. min sql queries per second
+  threads: 2 # number of threads to run per worker
+  workers: 1 # number of processes to create
+  logfile: logs/jobqueue.log # will write log messages in this file relative to the runpath
+  pidfile: logs/jobqueue.pid # will store pidfile in this folder relative to the runpath
   preload: [] # will preload nothing, usually this can be used to load a rails environment
   jobpath: jobs # will look for jobs in this folder, relative to the runpath
   runpath: tests # will run the daemon in this folder
-  enable_threads: true # will run work in multiple threads
-  establish_connection: true # the db connection must be established by the daemon process explicitly, normally this can be done in the preload scripts, e.g. by rails

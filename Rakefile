@@ -35,7 +35,7 @@ task :test => :test_prepare do
 
   if status.exitstatus != 0
     puts "Failed to start server"
-    puts "manually kill. e.g. 'kill `cat tests/logs/jobqueue-4321.pid`" if File.exist?("tests/logs/jobqueue-4321.pid")
+    puts "manually kill. e.g. 'kill `cat tests/logs/jobqueue.pid`" if File.exist?("tests/logs/jobqueue.pid")
     exit(status.exitstatus)
   end
 
@@ -43,7 +43,7 @@ task :test => :test_prepare do
   system("ruby -I tests -I tests/lib tests/test_server.rb")
 
   # stop the job queue
-  system("kill #{File.read('tests/logs/jobqueue-4321.pid')}")
+  system("kill #{File.read('tests/logs/jobqueue.pid')}")
 
 end
 

@@ -39,7 +39,7 @@ module Jobs
       @env = env
       preload
       establish_connection
-      @process = @config['process']
+      @threads = (@config['threads'] or 1).to_i
       @pid = Process.pid
     end
 
@@ -47,7 +47,7 @@ module Jobs
       @alive = true
       @thread = Thread.new{ worker }
       @count = 0
-      trap("USR1") { @logger.debug("[job worker #{@pid}]: queue event #{@count}"); @sig_lock.synchronize {@count += 1} } # queue up some work 
+      trap("USR1") { @sig_lock.synchronize {@count += 1} } # queue up some work 
       trap("USR2") { @alive = false; trap("USR2",'SIG_DFL') } # sent to stop normally
       trap('TERM') { @alive = false; trap("TERM",'SIG_DFL') }
       trap('INT')  { @alive = false; trap("INT",'SIG_DFL') }
@@ -58,19 +58,19 @@ module Jobs
         @sig_lock.synchronize{ count = @count; @count = 0 }
         if count > 0
           @logger.debug("[job worker #{@pid}]: processing #{count} jobs")
-          if count > @process # we've queued up more then we can handle chunk it out and start chugging away
-            (count/@process).times do
-              a = count - (count-@process)
-              @logger.debug("[job worker #{@pid}]: queueing #{a}")
+          if count > @threads # we've queued up more then we can handle chunk it out and start chugging away
+            (count/@threads).times do
+              a = count - (count-@threads)
+              #@logger.debug("[job worker #{@pid}]: queueing #{a}")
               @queue << a
-              count = (count-@process)
+              count = (count-@threads)
             end
             if count > 0
-              @logger.debug("[job worker #{@pid}]: queueing #{count}")
+              #@logger.debug("[job worker #{@pid}]: queueing #{count}")
               @queue << count
             end
           else
-            @logger.debug("[job worker #{@pid}]: queueing #{count}")
+            #@logger.debug("[job worker #{@pid}]: queueing #{count}")
             @queue << count
           end
         end
@@ -90,7 +90,7 @@ module Jobs
           count = @queue.pop # sleep until we get some work
         else
           begin # pop as many as we can until we reach a max
-            while count < @config['process'] do
+            while count < @threads do
               value = @queue.pop(true)
               if value.nil?
                 count = nil
@@ -102,11 +102,11 @@ module Jobs
           end
         end
 
-        @logger.debug "[job worker #{@pid}]: #{Process.pid} awake with: #{count} suggested jobs"
+        @logger.debug "[job worker #{@pid}]: #{@pid} awake with: #{count} suggested jobs"
 
         break if count.nil? # if we get a nil count we're done
 
-        count = @process if count == 0
+        count = @threads if count == 0
 
         jobs = []
 
@@ -123,7 +123,7 @@ module Jobs
             end
           end
 
-          if jobs.size > 2 and @config['enable_threads']
+          if jobs.size > 2 and @threads > 1
             threads = jobs.map do |job|
               Thread.new(job) do|j|
                 process(j)
