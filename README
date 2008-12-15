@@ -1,8 +1,7 @@
 UDP Job Processing Server.
 
-The concept is to have a server listening for UDP events.  If an event is received,
-events are polled, otherwise the server will sleep for a variable amount of time 
-dependent on the most recent frequency of incoming job requests.
+ * Jobs are persitent to a database so they are never lost.
+ * Jobs can be pushed to the server via UDP so they can start immediately
+ * Jobs are polled so even if a UDP event is missed, the job will be picked up
+ * Jobs are load balanced across N number of workers running Y number of threads
 
-
-The configuration file uses YAML and jobs can be written in Ruby.
