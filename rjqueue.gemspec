@@ -1,6 +1,6 @@
 Gem::Specification.new do |s|
   s.name = 'rjqueue'
-  s.version = "0.1.1"
+  s.version = "0.1.2"
   s.summary = "Ruby Job Queue"
   s.description = <<-EOF
     A Job Queue Server.  Responses to UDP requests.
@@ -8,7 +8,7 @@ Gem::Specification.new do |s|
 
   
 
-  s.files = ["LICENSE", "README", "Rakefile", "bin/rjqueue", "config/database.yml", "config/jobs.yml", "lib/jobs/scheduler.rb", "lib/jobs/initializer.rb", "lib/jobs/migrate.rb", "lib/jobs/job.rb", "lib/jobs/server.rb", "lib/jobs/client.rb", "lib/jobs/base.rb"]
+  s.files = ["LICENSE", "README", "Rakefile", "bin/rjqueue", "config/database.yml", "config/jobs.yml", "lib/jobs/scheduler.rb", "lib/jobs/initializer.rb", "lib/jobs/migrate.rb", "lib/jobs/worker.rb", "lib/jobs/job.rb", "lib/jobs/server.rb", "lib/jobs/client.rb", "lib/jobs/base.rb"]
 
   #### Load-time details
   s.require_path = 'lib'
@@ -19,7 +19,7 @@ Gem::Specification.new do |s|
   s.platform = Gem::Platform::RUBY
 
   
-  s.test_files = ["tests/sample.png", "tests/test_server.rb", "tests/jobs/image_thumb_job.rb", "tests/jobs/find_file_job.rb", "tests/lib/message.rb", "tests/lib/image.rb", "tests/lib/create_test_data.rb"]
+  s.test_files = ["tests/sample.png", "tests/test_server.rb", "tests/jobs/simple_job.rb", "tests/jobs/image_thumb_job.rb", "tests/jobs/find_file_job.rb", "tests/lib/message.rb", "tests/lib/image.rb", "tests/lib/create_test_data.rb"]
 
   #### Author and project details.
 
