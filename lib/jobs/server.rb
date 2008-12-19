@@ -150,9 +150,7 @@ module Jobs
       count = 0
 
       conditional = sql_runnable_conditions(@config['jobs_included'], @config['jobs_excluded'])
-      if conditional
-        conditional << " where #{conditional}"
-      end
+      conditional = " where #{conditional}" if conditional
       query = "select count(id) from jobs #{conditional}"
       @logger.debug("timeout check: #{query.inspect}")
 
