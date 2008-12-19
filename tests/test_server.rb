@@ -36,18 +36,23 @@ class TestServer < Test::Unit::TestCase
     # save the new record, should trigger the image
     assert image.save
 
-    until image.job.status != 'processing' and image.job.status != 'pending'
-      sleep 1
-      image = Image.find_by_id(image.id)
-      puts "waiting for job to complete... '#{image.job.status}' and #{Jobs::Job.count(:conditions => ["status = 'complete'"])} completed"
-    end
+    wait_image_job_complete_or_error(image)
 
-    image = Image.find_by_id(image.id)
-
-    assert_equal 'complete', image.job.status
-    assert File.exist?(image.thumb_path)
     dur = Time.now - timer
     puts "Duration: #{image.job.updated_at.to_f - image.job.created_at.to_f} seconds and duration: #{image.job.duration}, real: #{dur}"
+  end
+
+  def wait_image_job_complete_or_error(image)
+    img = image
+    until img.job.status != 'processing' and img.job.status != 'pending'
+      puts "waiting on job with status: #{img.job.status} and id: #{img.job.id}"
+      sleep 0.1 # poll for updated job status
+      img = Image.find_by_id(img.id)
+      puts "status: '#{img.job.status}', #{img.job.id} and #{Jobs::Job.count(:conditions => ["status = 'complete'"])} completed"
+    end
+
+    assert_equal 'complete', img.job.status
+    assert File.exist?(img.thumb_path)
   end
 
   def test_high_load_thumb_jobs
@@ -66,16 +71,7 @@ class TestServer < Test::Unit::TestCase
     end
 
     images.each do|image|
-
-      until image.job.status != 'processing' and image.job.status != 'pending'
-        sleep 1 # poll every second for updated job status
-        image = Image.find_by_id(image.id)
-        puts "waiting for job to complete... '#{image.job.status}' and #{Jobs::Job.count(:conditions => ["status = 'complete'"])} completed"
-      end
-
-      assert_equal 'complete', image.job.status
-      assert File.exist?(image.thumb_path)
-
+      wait_image_job_complete_or_error(image)
     end
   end
  

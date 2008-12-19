@@ -1,7 +1,7 @@
 test:
   host: 127.0.0.1
   port: 4320 # udp port to listen for new jobs
-  wait_time: 5 # timeout and check for jobs e.g. min sql queries per second
+  wait_time: 1 # timeout and check for jobs e.g. min sql queries per second
   threads: 1 # number of threads to run per worker
   workers: 2 # number of processes to create
   logfile: logs/jobqueue.log # will write log messages in this file relative to the runpath
@@ -10,4 +10,4 @@ test:
   jobpath: jobs # will look for jobs in this folder, relative to the runpath
   runpath: tests # will run the daemon in this folder
   jobs_included: ['image_thumb', 'simple']
-  jobs_excluded: ['simple']
+  #jobs_excluded: ['simple']

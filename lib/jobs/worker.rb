@@ -57,9 +57,9 @@ module Jobs
       @thread = Thread.new{ worker }
       @count = 0
       trap("USR1") { @sig_lock.synchronize {@count += 1} } # queue up some work 
-      trap("USR2") { @alive = false; trap("USR2",'SIG_DFL') } # sent to stop normally
-      trap('TERM') { @alive = false; trap("TERM",'SIG_DFL') }
-      trap('INT')  { @alive = false; trap("INT",'SIG_DFL') }
+      trap("USR2") { @alive = false; trap("USR2",'SIG_DFL'); @logger.debug("USR2: shutdown")   } # sent to stop normally
+      trap('TERM') { @alive = false; trap("TERM",'SIG_DFL'); @logger.debug("TERM: shutdown")  }
+      trap('INT')  {  @alive = false; trap("INT",'SIG_DFL'); @logger.debug("INT: shutdown") }
 
       while @alive do
         sleep 1 # 1 second resolution
@@ -67,24 +67,10 @@ module Jobs
         @sig_lock.synchronize{ count = @count; @count = 0 }
         if count > 0
           @logger.debug("[job worker #{@pid}]: processing #{count} jobs")
-          if count > @threads # we've queued up more then we can handle chunk it out and start chugging away
-            (count/@threads).times do
-              a = count - (count-@threads)
-              #@logger.debug("[job worker #{@pid}]: queueing #{a}")
-              @queue << a
-              count = (count-@threads)
-            end
-            if count > 0
-              #@logger.debug("[job worker #{@pid}]: queueing #{count}")
-              @queue << count
-            end
-          else
-            #@logger.debug("[job worker #{@pid}]: queueing #{count}")
-            @queue << count
-          end
+          @queue.push count
         end
       end
-      @queue << nil
+      @queue.push nil
       @logger.info "[job worker #{@pid}]: Joining with main thread"
       @thread.join # wait for the worker
     end
@@ -94,23 +80,8 @@ module Jobs
       while @alive
         count = 0
 
-        if @queue.empty?
-          @logger.debug "[job worker #{@pid}]: #{Process.pid} waiting..."
-          count = @queue.pop # sleep until we get some work
-        else
-          begin # pop as many as we can until we reach a max
-            while count < @threads do
-              value = @queue.pop(true)
-              if value.nil?
-                count = nil
-                break
-              end
-              count += value
-            end
-          rescue ThreadError => e
-          end
-        end
-
+        @logger.debug "[job worker #{@pid}]: #{Process.pid} waiting..."
+        count = @queue.pop # sleep until we get some work
         @logger.debug "[job worker #{@pid}]: #{@pid} awake with: #{count} suggested jobs"
 
         break if count.nil? # if we get a nil count we're done
@@ -197,7 +168,7 @@ module Jobs
       @logger.info("[job worker #{@pid}]: establish connection environment with #{@config_path.inspect} and env: #{@env.inspect}")
       @db = YAML.load_file(File.join(File.dirname(@config_path),'database.yml'))[@env]
       ActiveRecord::Base.establish_connection @db
-      ActiveRecord::Base.logger = @logger
+      #ActiveRecord::Base.logger = @logger
 
       # load the jobs/job model
       require 'jobs/job'

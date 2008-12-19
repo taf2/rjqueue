@@ -7,7 +7,5 @@ rjqueue --setup
     make app/jobs
     think about verify with sqlite
   
-* on start up check for the jobs table and fail before daemonizing
-* report missing job requests better (check in the schedule method) e.g. not setting details on the job
+* allow monit to signal individual workers for restart by master process
 * generate monit configuration, from jobs.yml
-* create worker processes

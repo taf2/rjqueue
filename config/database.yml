@@ -1,7 +1,7 @@
 test:
   adapter: mysql
   database: jobs_test
-  username: rails
-  password: railsDev
+  username: root
+  password: 
   pool: 5
   host: 127.0.0.1

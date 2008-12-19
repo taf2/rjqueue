@@ -1,3 +1,5 @@
+require 'pathname'
+
 module Jobs
   class Config
 
@@ -6,6 +8,16 @@ module Jobs
         ::Jobs::HostMap[name]
       else
         {:host => ::Jobs::Keys[:host], :port => ::Jobs::Keys[:port]}
+      end
+    end
+
+    def self.jobpath
+      rp = Pathname.new(Jobs::Keys['runpath'])
+      jp = Pathname.new(Jobs::Keys['jobpath'])
+      if jp.relative?
+        (rp + jp).to_s
+      else
+        jp.to_s
       end
     end
 

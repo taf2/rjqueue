@@ -40,8 +40,6 @@ module Jobs
       @db = YAML.load_file(File.join(File.dirname(@config_path),'database.yml'))[@env]
       ActiveRecord::Base.establish_connection @db
       ActiveRecord::Base.logger = @logger
-      #ActiveRecord::Base.logger = Logger.new( "#{@logfile}-db.log" )
-      #ActiveRecord::Base.logger = Logger.new( "/dev/null" )
 
       # load the jobs/job model
       require 'jobs/job'
@@ -66,6 +64,7 @@ module Jobs
  
         # use this to determine when all workers are started and the child process is ready to listen for events
         trap("USR1"){ @child_up = true }
+        #trap("USR2"){ } # use this signal to restart workers
 
         if File.exist?(@pid_file)
           STDERR.puts "Pid file for job already exists: #{@pid_file}"
@@ -210,6 +209,7 @@ module Jobs
               end
             else
               count = check_count
+              #@logger.debug("timeout count: #{count}")
             end
           rescue Errno::EAGAIN => e
             # there is more information pending, but we don't have it hear yet... not sure if this condition happens with UDP
@@ -239,8 +239,24 @@ module Jobs
 
     def stop_worker(pid)
       @logger.info "Stopping worker: #{pid}"
-      Process.kill('USR2', pid)
-      Process.waitpid2(pid,0)
+      Process.kill('USR2', pid) # send the process notice
+      ret = nil
+      ret= Process.waitpid2(pid,Process::WNOHANG)
+      if ret.nil?
+        @logger.info "worker: #{pid}, still alive after 1 second send TERM"
+        Process.kill('TERM', pid) # send the process notice
+        sleep 1 # wait a second
+        ret= Process.waitpid2(pid,Process::WNOHANG)
+        threshold = 0
+        while ret.nil? and threshold < 60 
+          sleep 5
+          @logger.info "worker: #{pid}, still alive after 1 second send TERM"
+          Process.kill('TERM', pid) # it's done
+          ret= Process.waitpid2(pid,Process::WNOHANG)
+          threshold += 1
+        end
+      end
+      @logger.info "worker: #{pid}, stopped with status: #{ret.inspect}"
     end
 
     def start_worker(worker_id)
