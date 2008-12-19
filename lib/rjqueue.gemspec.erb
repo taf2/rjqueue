@@ -1,0 +1,38 @@
+Gem::Specification.new do |s|
+  s.name = 'rjqueue'
+  s.version = '<%= RJQ_VERSION %>'
+  s.summary = "Ruby Job Queue"
+  s.description = <<-EOF
+    A Job Queue Server.  Responses to UDP requests.
+  EOF
+
+  <%
+    files = ["LICENSE", "README", "Rakefile",
+             "bin/rjqueue", "config/database.yml",
+             "config/jobs.yml"] + Dir["lib/**/**.rb"]
+  %>
+
+  s.files = <%= files.inspect %>
+
+  #### Load-time details
+  s.require_path = 'lib'
+
+  #### Documentation and testing.
+  s.has_rdoc = true
+
+  s.platform = Gem::Platform::RUBY
+
+  <% 
+    tests = ["tests/sample.png"] + Dir["tests/**/**.rb"]
+  %>
+  s.test_files = <%= tests.inspect %>
+
+  #### Author and project details.
+
+  s.author = "Todd A. Fisher"
+  s.email = "todd.fisher@gmail.com"
+  s.homepage = "http://idle-hacking.com/"
+  s.rubyforge_project = "rjqueue"
+  s.bindir = "bin"
+  s.executables = ["rjqueue"]
+end
