@@ -21,6 +21,7 @@ module Jobs
         excludes = denied.map{|d| "'#{d}'" }.join(',')
         conditions << %Q( and name not IN (#{excludes}) )
       end
+      conditions
     end
   end
 end

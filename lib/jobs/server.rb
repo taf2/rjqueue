@@ -149,7 +149,11 @@ module Jobs
     def check_count
       count = 0
 
-      query = "select count(id) from jobs where #{sql_runnable_conditions(@config['jobs_included'], @config['jobs_excluded'])}"
+      conditional = sql_runnable_conditions(@config['jobs_included'], @config['jobs_excluded'])
+      if conditional
+        conditional << " where #{conditional}"
+      end
+      query = "select count(id) from jobs #{conditional}"
       @logger.debug("timeout check: #{query.inspect}")
 
       res = @conn.query(query)
