@@ -26,9 +26,11 @@ require 'rubygems'
 require 'mysql'
 require 'active_record'
 require 'jobs/client'
+require 'jobs/runnable'
 
 module Jobs
   class Worker
+    include Jobs::Runnable
     def initialize(config, runpath, config_path, logger, env)
       @config = config
       @runpath = runpath
@@ -119,9 +121,10 @@ module Jobs
 
         begin
           Jobs::Job.transaction do
-            jobs = Jobs::Job.find(:all, :conditions => {:status => 'pending', # only if the job is pending
-                                                        :locked => false}, # only if the job is not locked
-                                        :limit => count ) # only retrieve as many jobs as we were told about
+
+            conditions = sql_runnable_conditions(@config['jobs_included'], @config['jobs_excluded'])
+            jobs = Jobs::Job.find(:all, :conditions => conditions, :limit => count ) # only retrieve as many jobs as we were told about
+
             # lock the jobs we're about to process here
             @logger.debug "[job worker #{@pid}]: got #{jobs.size} to process out of #{count}"
             jobs.each do|job|
@@ -195,8 +198,6 @@ module Jobs
       @db = YAML.load_file(File.join(File.dirname(@config_path),'database.yml'))[@env]
       ActiveRecord::Base.establish_connection @db
       ActiveRecord::Base.logger = @logger
-      #ActiveRecord::Base.logger = Logger.new( "#{@logfile}-db.log" )
-      #ActiveRecord::Base.logger = Logger.new( "/dev/null" )
 
       # load the jobs/job model
       require 'jobs/job'

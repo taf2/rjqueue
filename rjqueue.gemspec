@@ -1,6 +1,6 @@
 Gem::Specification.new do |s|
   s.name = 'rjqueue'
-  s.version = "0.1.2"
+  s.version = '0.1.4'
   s.summary = "Ruby Job Queue"
   s.description = <<-EOF
     A Job Queue Server.  Responses to UDP requests.
@@ -8,7 +8,7 @@ Gem::Specification.new do |s|
 
   
 
-  s.files = ["LICENSE", "README", "Rakefile", "bin/rjqueue", "config/database.yml", "config/jobs.yml", "lib/jobs/scheduler.rb", "lib/jobs/initializer.rb", "lib/jobs/migrate.rb", "lib/jobs/worker.rb", "lib/jobs/job.rb", "lib/jobs/server.rb", "lib/jobs/client.rb", "lib/jobs/base.rb"]
+  s.files = ["LICENSE", "README", "Rakefile", "bin/rjqueue", "config/database.yml", "config/jobs.yml", "lib/jobs/scheduler.rb", "lib/jobs/initializer.rb", "lib/jobs/config.rb", "lib/jobs/migrate.rb", "lib/jobs/worker.rb", "lib/jobs/runnable.rb", "lib/jobs/job.rb", "lib/jobs/server.rb", "lib/jobs/client.rb", "lib/jobs/base.rb"]
 
   #### Load-time details
   s.require_path = 'lib'

@@ -6,10 +6,13 @@
 #
 require 'yaml'
 require 'socket'
+require 'jobs/runnable'
 
 module Jobs
 
   class Server
+    include Jobs::Runnable
+
     def initialize(runpath, config_path, env)
       @runpath = runpath
       @config_path = File.expand_path(config_path)
@@ -17,6 +20,42 @@ module Jobs
       @workers = []
       @next_worker = 0
       load_config
+    end
+
+    def migrate
+      enable_logger
+      if @config['preload']
+        preload = @config['preload']
+        if preload.is_a?(Array)
+          preload.each { |f| require f }
+        else
+          require preload
+        end
+      end
+
+      require 'rubygems'
+      require 'active_record'
+
+      @logger.info("[job worker #{@pid}]: establish connection environment with #{@config_path.inspect} and env: #{@env.inspect}")
+      @db = YAML.load_file(File.join(File.dirname(@config_path),'database.yml'))[@env]
+      ActiveRecord::Base.establish_connection @db
+      ActiveRecord::Base.logger = @logger
+      #ActiveRecord::Base.logger = Logger.new( "#{@logfile}-db.log" )
+      #ActiveRecord::Base.logger = Logger.new( "/dev/null" )
+
+      # load the jobs/job model
+      require 'jobs/job'
+      require 'jobs/migrate'
+      CreateJobs.up
+    end
+
+    def kill
+      load_config
+      if File.exist?(@pid_file)
+        system("kill #{File.read(@pid_file)}")
+      else
+        puts "Job Queue Pid File not found! Try ps -ef | grep rjqueue"
+      end
     end
 
     def run(daemonize=true)
@@ -87,14 +126,15 @@ module Jobs
 
         w = 0
         puts "Waiting for child workers to start..."
-        while( !@child_up and w < 10 ) do
-          sleep 1
+        while( !@child_up and w < 20 ) do
+          sleep 5
           w+= 1
         end
         if @child_up
-          puts "Workers up"
+          puts "Workers alive"
         else
           puts "Check error log, workers may not be started, or you may be starting so many workers it has taken longer then 10 seconds to start them all. In either event checking the log for details would be the first place to look."
+          @parent_pid = nil
         end
 
         exit(1) if output.match(/ERROR/i)
@@ -108,10 +148,13 @@ module Jobs
 
     def check_count
       count = 0
-      res = @conn.query("select count(id) from jobs where status='pending' and locked=0")
-      #count += 1 # timeout, tell the worker process to check again
+
+      query = "select count(id) from jobs where #{sql_runnable_conditions(@config['jobs_included'], @config['jobs_excluded'])}"
+      @logger.debug("timeout check: #{query.inspect}")
+
+      res = @conn.query(query)
+
       count = res.fetch_row[0].to_i
-      #@logger.debug("[jobqueue]: #{count} ready")
       count
     rescue Mysql::Error => e
       @logger.error("[jobqueue]: #{e.message}\n#{e.backtrace.join("\n")}")
@@ -132,7 +175,7 @@ module Jobs
 
       @sleep_time = @wait_time
 
-      @config['workers'].times { start_worker }
+      @config['workers'].times {|i| start_worker(i) }
 
       unless defined?(Jobs::Initializer) and Jobs::Initializer.ready?
         require 'rubygems'
@@ -150,7 +193,11 @@ module Jobs
         count = check_count
         signal_work(count)
 
-        Process.kill("USR1", @parent_pid) if @parent_pid
+        begin
+          Process.kill("USR1", @parent_pid) if !@parent_pid.nil?
+        rescue => e
+          @logger.error "#{e.message}\n#{e.backtrace.join("\n")}"
+        end
 
         while(@running) do
           count = 0
@@ -160,14 +207,13 @@ module Jobs
                 count += 1 # a new message, increment the request count
               end
             else
-              #@logger.debug("[jobqueue]: timeout")
               count = check_count
             end
           rescue Errno::EAGAIN => e
             # there is more information pending, but we don't have it hear yet... not sure if this condition happens with UDP
           end
 
-          if count > 0 #and @queue.size < 5 # no reason to flood this queue, if we have that much work... we need more processes
+          if count > 0
             @logger.info("[jobqueue]: received #{count} events")
             # signal workers, distribute work load evenly to each worker
             signal_work(count)
@@ -177,6 +223,7 @@ module Jobs
       rescue Object => e
         if @running
           @logger.error "[jobqueue] #{e.message}\n#{e.backtrace.join("\n")}"
+          sleep 0.1 # throttle incase things get crazy
           retry
         end
       end
@@ -194,7 +241,7 @@ module Jobs
       Process.waitpid2(pid,0)
     end
 
-    def start_worker
+    def start_worker(worker_id)
       config      = @config
       config_path = @config_path
       logger      = @logger
@@ -209,10 +256,14 @@ module Jobs
           require 'jobs/worker'
           worker = Jobs::Worker.new(config,@runpath, config_path,logger,env)
           @logger.info "created worker: #{Process.pid}"
+          # drop a worker pid
+          File.open(@pid_file.gsub(/\.pid$/,"-#{worker_id}.pid"),'wb') {|f| f << Process.pid }
           # signal parent
           wr.write "up"
           wr.close
           worker.listen
+          # cleanup pid
+          File.unlink @pid_file.gsub(/\.pid$/,"-#{worker_id}.pid")
         rescue Object => e
           msg = "#{e.message}\n#{e.backtrace.join("\n")}"
           if wr.closed?
@@ -294,7 +345,7 @@ module Jobs
    
       @pid_file = @config['pidfile'] or File.join(@runpath,'log','jobs.pid')
 
-      if !@pid_file.match(/^\//)
+      if @pid_file and !@pid_file.match(/^\//)
         # make pidfile path absolute
         @pid_file = File.join(@runpath,File.dirname(@pid_file), File.basename(@pid_file))
       end
@@ -322,6 +373,8 @@ module Jobs
       else
         @logger = Logger.new( '/dev/null' )
       end
+
+      @logger.level = Logger::ERROR if @env == 'production'
     end
 
   end

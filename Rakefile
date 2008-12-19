@@ -1,6 +1,7 @@
 require 'rake'
 require 'rake/testtask'
 
+RJQ_VERSION="0.1.4"
 
 desc 'Set up environment, setup database options in config/database.yml'
 task :setup do
@@ -52,8 +53,8 @@ task :default => :test
 desc 'Generate gem specification'
 task :gemspec do
   require 'erb'
-  tspec = ERB.new(File.read(File.join(File.dirname(__FILE__),'rjqueue.gemspec.erb')))
-  File.open('rjqueue.gemspec','wb') do|f|
+  tspec = ERB.new(File.read(File.join(File.dirname(__FILE__),'lib','rjqueue.gemspec.erb')))
+  File.open(File.join(File.dirname(__FILE__),'rjqueue.gemspec'),'wb') do|f|
     f << tspec.result
   end
 end
@@ -69,11 +70,11 @@ task :build => :gemspec do
   Gem::Builder.new(spec).build
 end
 
-
 desc 'Install the gem'
-task :install  => :package do
-  #TODO handle sudo for windows
-  system("sudo gem install pkg/")
+task :install  => :build do
+  if RUBY_PLATFORM.match(/mswin32/)
+    system("gem install rjqueue-#{RJQ_VERSION}")
+  else
+    system("sudo gem install rjqueue-#{RJQ_VERSION}")
+  end
 end
-
-

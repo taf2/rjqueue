@@ -2,6 +2,7 @@ require 'socket'
 require 'yaml'
 require 'active_record'
 require 'jobs/job'
+require 'jobs/config'
 
 module Jobs
 
@@ -16,7 +17,7 @@ module Jobs
                           :status        => "pending")
       job.save!
 
-      signal(threadable)
+      signal(job_name,threadable)
 
       job.id
     end
@@ -26,11 +27,14 @@ module Jobs
     #
     # threadable: provides a hint that a threaded worker may be used to run the job
     #
-    def signal(threadable=nil)
+    def signal(job_name=nil,threadable=nil)
       socket = UDPSocket.open
       #socket.setsockopt(Socket::SOL_SOCKET, Socket::SO_BROADCAST, true)
-
-      socket.send(threadable ? 't' : 's', 0, ::Jobs::Config[:host], ::Jobs::Config[:port] )
+      hosts = ::Jobs::Config.host_for_job(job_name)
+      if hosts.is_a?(Array)
+      else
+        socket.send(threadable ? 't' : 's', 0, hosts[:host], hosts[:port] )
+      end
     end
   end
 

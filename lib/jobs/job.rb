@@ -3,6 +3,15 @@ module Jobs
     serialize :data
     belongs_to :taskable, :polymorphic => true
 
+    #
+    # check if the job is currently being processed
+    #
+    # e.g. status == 'processing' or status == 'pending'
+    #
+    def busy?
+      self.status != 'processing' and self.status != 'pending'
+    end
+
     def instance(logger_instance, lock)
       load("#{Jobs::Root}/#{name}_job.rb")
       klass = "#{name}_job".camelize.constantize
