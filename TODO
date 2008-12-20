@@ -1,11 +1,2 @@
-rjqueue --setup
-
-  copy over 
-    config/jobs.yml
-    config/initializers/jobs.rb
-    migration
-    make app/jobs
-    think about verify with sqlite
-  
 * allow monit to signal individual workers for restart by master process
 * generate monit configuration, from jobs.yml

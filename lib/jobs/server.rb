@@ -50,7 +50,13 @@ module Jobs
     def kill
       load_config
       if File.exist?(@pid_file)
-        system("kill #{File.read(@pid_file)}")
+        attempts = 0
+        while File.exist?(@pid_file) and attempts < 10
+          puts "#{attempts} attempts to kill"
+          system("kill #{File.read(@pid_file)}")
+          sleep 5 # give things a chance to stop
+          attempts += 1 # increment count
+        end
       else
         puts "Job Queue Pid File not found! Try ps -ef | grep rjqueue"
       end
@@ -280,8 +286,6 @@ module Jobs
           wr.write "up"
           wr.close
           worker.listen
-          # cleanup pid
-          File.unlink @pid_file.gsub(/\.pid$/,"-#{worker_id}.pid")
         rescue Object => e
           msg = "#{e.message}\n#{e.backtrace.join("\n")}"
           if wr.closed?
@@ -290,6 +294,9 @@ module Jobs
             wr.write msg
             wr.close
           end
+        ensure
+          # cleanup pid
+          File.unlink @pid_file.gsub(/\.pid$/,"-#{worker_id}.pid")
         end
       end
       wr.close

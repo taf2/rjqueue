@@ -9,6 +9,7 @@ opts = GetoptLong.new(
           [ '--environment', '-e', GetoptLong::OPTIONAL_ARGUMENT ],
           [ '--config', '-c', GetoptLong::OPTIONAL_ARGUMENT ],
           [ '--migrate', '-m', GetoptLong::NO_ARGUMENT ],
+          [ '--setup', '-s', GetoptLong::OPTIONAL_ARGUMENT ],
           [ '--daemonize', '-d', GetoptLong::NO_ARGUMENT ],
           [ '--kill', '-k', GetoptLong::NO_ARGUMENT ] )
 
@@ -17,6 +18,7 @@ env = 'development'
 migrate = false
 kill = false
 daemonize = false
+setup = nil
 
 opts.each do|opt,arg|
   case opt
@@ -24,10 +26,17 @@ opts.each do|opt,arg|
       puts "Usage: #{__FILE__} --config path/to/config/file --environment development|production"
       puts "#{__FILE__} --daemonize, will daemonize the process "
       puts "#{__FILE__} --kill, will kill the currently running daemon "
+      puts "#{__FILE__} --config, explicitly state where to find configuration "
+      puts "#{__FILE__} --help, show this message"
+      puts "#{__FILE__} --environment, choose which environment to run e.g. 'development or production'"
+      puts "#{__FILE__} --setup [rails|merb], default is rails "
       puts "#{__FILE__} --migrate, will run the jobs migration "
       exit(0)
     when '--config'
       config = arg
+    when '--setup'
+      setup = arg
+      setup = 'rails' if arg.nil? or arg == ''
     when '--migrate'
       migrate = true
     when '--kill'
@@ -39,21 +48,124 @@ opts.each do|opt,arg|
   end
 end
 
-if config.nil?
-  # try using config/jobs.yml, as the default
-  config = "config/jobs.yml"
-end
-      
-if !File.exist?(config)
-  puts "Error config file: #{config} does not exist!"
-  exit(1)
-end
+if setup.nil?
+  if config.nil?
+    # try using config/jobs.yml, as the default
+    config = "config/jobs.yml"
+  end
+        
+  if !File.exist?(config)
+    puts "Error config file: #{config} does not exist!"
+    exit(1)
+  end
 
-runner = Jobs::Server.new( File.expand_path(File.dirname(__FILE__)), config, env )
-if migrate
-  runner.migrate
-elsif kill
-  runner.kill
+  runner = Jobs::Server.new( File.expand_path(File.dirname(__FILE__)), config, env )
+  if migrate
+    runner.migrate
+  elsif kill
+    runner.kill
+  else
+    runner.run(daemonize)
+  end
 else
-  runner.run(daemonize)
+  puts "Setting up #{setup} environment"
+  if setup == 'rails'
+    if !File.exist?('config/jobs.yml') then
+    puts "create: config/jobs.yml"
+    File.open("config/jobs.yml","wb") do|f|
+      f<< %{
+development:
+  host: 127.0.0.1
+  port: 4322 # udp port to listen for new jobs
+  wait_time: 10 # min amount of time to wait before chekcing for jobs
+  threads: 1
+  workers: 1
+  logfile: log/jobqueue.log
+  pidfile: log/jobqueue.pid
+  preload: [config/boot.rb, config/environment.rb]
+  jobpath: app/jobs
+  runpath: .
+test:
+  host: 127.0.0.1
+  port: 4320 # udp port to listen for new jobs
+  wait_time: 1 # timeout and check for jobs e.g. min sql queries per second
+  threads: 1 # number of threads to run per worker
+  workers: 2 # number of processes to create
+  logfile: logs/jobqueue.log # will write log messages in this file relative to the runpath
+  pidfile: logs/jobqueue.pid # will store pidfile in this folder relative to the runpath
+  preload: [] # will preload nothing, usually this can be used to load a rails environment
+  jobpath: app/jobs
+  runpath: .
+production:
+  host: 127.0.0.1
+  port: 4322 # udp port to listen for new jobs
+  wait_time: 10 # min amount of time to wait before chekcing for jobs
+  threads: 1
+  workers: 2
+  logfile: log/jobqueue.log
+  pidfile: log/jobqueue.pid
+  preload: [config/boot.rb, config/environment.rb]
+  jobpath: app/jobs
+  runpath: .
+}
+    end # end open
+    end # end if
+    if !File.exist?('config/initializers/jobs.rb') then
+      puts "create: config/initializers/jobs.rb"
+      File.open("config/initializers/jobs.rb","wb") do|f|
+f << %{
+Jobs::Initializer.rails!
+}
+      end
+    end
+    found = Dir['db/migrate/**.rb'].find do|f|
+      f.match(/create_jobs_table/)
+    end
+    if !found
+      system("mkdir -p db/migrate")
+      migration = "db/migrate/#{Time.now.utc.strftime('%Y%m%d%k%M%S')}_create_jobs_table.rb"
+      puts "create: #{migration}"
+      File.open(migration,"wb") do|f|
+f << %{class CreateJobsTable < ActiveRecord::Migration
+  def self.up
+    create_table :jobs do |t|
+      t.string   :name,                          :null => false
+      t.text     :data
+      t.string   :status
+      t.datetime :created_at
+      t.datetime :updated_at
+      t.integer  :duration
+      t.integer  :taskable_id
+      t.string   :taskable_type
+      t.text     :details
+      t.boolean  :locked,     :default => false, :null => false
+      t.integer  :attempts,   :default => 0,     :null => false
+    end
+
+    add_index :jobs, [:status, :locked]
+  end
+
+  def self.down
+    drop_table :jobs
+  end
+end}
+      end
+    end
+    if !File.exist?('app/jobs')
+      puts "create: app/jobs"
+      system("mkdir -p app/jobs")
+    end
+    puts %{Add:
+
+config.gem "rjqueue", :lib => "jobs/client"
+
+To, config/environment.rb
+
+Add Job table:
+
+rake db:migrate
+    }
+  else
+    puts "IMPLEMENT #{setup}"
+  end
 end

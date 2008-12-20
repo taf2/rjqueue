@@ -1,0 +1,15 @@
+<% @workers.times do|worker_id|
+  worker_pid = @pid_file.gsub(/\.pid$/,"-#{worker_id}.pid")
+%>
+check process rjqueue-<%= worker_id %> with pidfile <%= worker_pid %>
+    start program = "cd <%= @run_path %>; rjqueue -c <%= @config_path %> -e production -d "
+    stop program = "cd <%= @run_path %>; rjqueue -c <%= @config_path %> -k"
+    group rjqueue
+
+    if totalmem is greater than 90.0 MB for 5 cycles then restart       # eating up memory?
+    if cpu is greater than 80% for 3 cycles then alert                  # send an email to admin
+    if cpu is greater than 90% for 4 cycles then restart                # hung process?
+    if loadavg(5min) greater than 10 for 10 cycles then restart         # bad, bad, bad
+    if 3 restarts within 5 cycles then timeout                          # something is wrong, call the sys-admin
+
+<% end %>

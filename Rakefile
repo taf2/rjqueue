@@ -1,7 +1,7 @@
 require 'rake'
 require 'rake/testtask'
 
-RJQ_VERSION="0.2.0"
+RJQ_VERSION="0.2.1"
 
 desc 'Set up environment, setup database options in config/database.yml'
 task :setup do
