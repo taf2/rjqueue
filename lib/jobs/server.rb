@@ -22,6 +22,39 @@ module Jobs
       load_config
     end
 
+    def monitgen
+      enable_logger
+      if @config['preload']
+        preload = @config['preload']
+        if preload.is_a?(Array)
+          preload.each { |f| require f }
+        else
+          require preload
+        end
+      end
+
+      require 'rubygems'
+      require 'active_record'
+
+      @logger.info("[job worker #{@pid}]: establish connection environment with #{@config_path.inspect} and env: #{@env.inspect}")
+      @db = YAML.load_file(File.join(File.dirname(@config_path),'database.yml'))[@env]
+      ActiveRecord::Base.establish_connection @db
+      ActiveRecord::Base.logger = @logger
+
+      require 'erb'
+
+      template = ERB.new File.read(File.join(File.dirname(__FILE__),'..','..','config','monit.conf.erb'))
+
+      workers     = @config['workers']
+      pid_file    = @pid_file
+      run_path    = @runpath
+      config_path = @config_path
+      environment = @env
+
+      puts template.result(binding)
+
+    end
+
     def migrate
       enable_logger
       if @config['preload']

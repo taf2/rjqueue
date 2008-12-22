@@ -10,6 +10,7 @@ opts = GetoptLong.new(
           [ '--config', '-c', GetoptLong::OPTIONAL_ARGUMENT ],
           [ '--migrate', '-m', GetoptLong::NO_ARGUMENT ],
           [ '--setup', '-s', GetoptLong::OPTIONAL_ARGUMENT ],
+          [ '--monitgen', '-g', GetoptLong::NO_ARGUMENT ],
           [ '--daemonize', '-d', GetoptLong::NO_ARGUMENT ],
           [ '--kill', '-k', GetoptLong::NO_ARGUMENT ] )
 
@@ -19,6 +20,7 @@ migrate = false
 kill = false
 daemonize = false
 setup = nil
+monitgen = false
 
 opts.each do|opt,arg|
   case opt
@@ -31,12 +33,15 @@ opts.each do|opt,arg|
       puts "#{__FILE__} --environment, choose which environment to run e.g. 'development or production'"
       puts "#{__FILE__} --setup [rails|merb], default is rails "
       puts "#{__FILE__} --migrate, will run the jobs migration "
+      puts "#{__FILE__} --monitgen, give your jobs.yml and environment generate an appropriate monit configuration "
       exit(0)
     when '--config'
       config = arg
     when '--setup'
       setup = arg
       setup = 'rails' if arg.nil? or arg == ''
+    when '--monitgen'
+      monitgen = true
     when '--migrate'
       migrate = true
     when '--kill'
@@ -62,6 +67,8 @@ if setup.nil?
   runner = Jobs::Server.new( File.expand_path(File.dirname(__FILE__)), config, env )
   if migrate
     runner.migrate
+  elsif monitgen
+    runner.monitgen
   elsif kill
     runner.kill
   else

@@ -1,2 +1,1 @@
 * allow monit to signal individual workers for restart by master process
-* generate monit configuration, from jobs.yml

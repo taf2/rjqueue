@@ -1,9 +1,9 @@
-<% @workers.times do|worker_id|
-  worker_pid = @pid_file.gsub(/\.pid$/,"-#{worker_id}.pid")
+<% workers.times do|worker_id|
+  worker_pid = pid_file.gsub(/\.pid$/,"-#{worker_id}.pid")
 %>
 check process rjqueue-<%= worker_id %> with pidfile <%= worker_pid %>
-    start program = "cd <%= @run_path %>; rjqueue -c <%= @config_path %> -e production -d "
-    stop program = "cd <%= @run_path %>; rjqueue -c <%= @config_path %> -k"
+    start program = "cd <%= run_path %>; rjqueue -c <%= config_path %> -e <%= environment %> -d "
+    stop program = "cd <%= run_path %>; rjqueue -c <%= config_path %> -k"
     group rjqueue
 
     if totalmem is greater than 90.0 MB for 5 cycles then restart       # eating up memory?
